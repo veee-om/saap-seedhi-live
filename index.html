@@ -36,24 +36,39 @@
         <p class="banner" id="banner" aria-live="polite"></p>
       </section>
 
-      <section class="game-layout" id="game-panel" hidden>
-        <aside class="side-panel">
+      <section class="lobby-panel" id="lobby-panel" hidden>
+        <div class="lobby-hero">
+          <div>
+            <p class="eyebrow">Room lobby</p>
+            <h2 id="lobby-title">Waiting for players</h2>
+            <p id="lobby-hint">Share the room code and start when everyone is ready.</p>
+          </div>
           <div class="room-card">
             <span>Room</span>
             <button class="room-code" id="copy-room-button" type="button">-----</button>
             <small>Tap to copy</small>
           </div>
+        </div>
 
+        <section class="players players--lobby" id="players" aria-label="Players"></section>
+
+        <div class="lobby-actions">
+          <button class="button" id="start-button" type="button">Start match</button>
+          <p class="lobby-message" id="lobby-message">Need at least 2 players.</p>
+        </div>
+      </section>
+
+      <section class="game-layout" id="game-panel" hidden>
+        <aside class="side-panel">
           <div class="room-card">
             <span>Status</span>
             <strong id="game-status">Waiting</strong>
             <p id="game-hint">Create or join a room to start.</p>
           </div>
 
-          <section class="players" id="players" aria-label="Players"></section>
+          <section class="players" id="game-players" aria-label="Players"></section>
 
           <div class="side-actions">
-            <button class="button" id="start-button" type="button">Start match</button>
             <button class="button button--ghost" id="reset-button" type="button">Back to lobby</button>
           </div>
         </aside>
@@ -64,9 +79,9 @@
               <span>Turn</span>
               <strong id="turn-label">Waiting</strong>
             </article>
-            <article>
+            <article class="dice-card">
               <span>Last dice</span>
-              <strong id="dice-value">-</strong>
+              <strong class="dice" id="dice-value" aria-label="Last dice">-</strong>
             </article>
             <article>
               <span>Move</span>
@@ -76,7 +91,10 @@
 
           <div class="board-shell">
             <p class="board-legend" id="board-legend">Snakes slide. Ladders climb.</p>
-            <div id="board" class="board" aria-label="Snakes and Ladders board"></div>
+            <div class="board-stage">
+              <div id="board" class="board" aria-label="Snakes and Ladders board"></div>
+              <svg id="board-art" class="board-art" viewBox="0 0 100 100" aria-hidden="true"></svg>
+            </div>
           </div>
 
           <button class="button button--dice" id="roll-button" type="button">Roll dice</button>

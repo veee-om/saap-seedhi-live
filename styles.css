@@ -25,6 +25,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -90,6 +94,7 @@ h1 {
 }
 
 .join-panel,
+.lobby-panel,
 .side-panel,
 .play-panel,
 .winner-modal__card {
@@ -101,6 +106,36 @@ h1 {
 
 .join-panel {
   padding: 16px;
+}
+
+.lobby-panel {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+
+.lobby-panel[hidden] {
+  display: none;
+}
+
+.lobby-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 14px;
+  align-items: start;
+}
+
+.lobby-hero h2 {
+  margin-bottom: 8px;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  line-height: 0.95;
+}
+
+.lobby-hero p,
+.lobby-message {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-weight: 800;
 }
 
 .join-form {
@@ -135,9 +170,15 @@ h1 {
 }
 
 .join-actions,
-.side-actions {
+.side-actions,
+.lobby-actions {
   display: flex;
   gap: 10px;
+}
+
+.lobby-actions {
+  align-items: center;
+  justify-content: space-between;
 }
 
 .button {
@@ -239,6 +280,10 @@ h1 {
   gap: 8px;
 }
 
+.players--lobby {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .player-card {
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr);
@@ -300,6 +345,12 @@ h1 {
   overflow: hidden;
 }
 
+.board-stage {
+  position: relative;
+  width: min(100%, calc(100dvh - 220px), 780px);
+  aspect-ratio: 1;
+}
+
 .board-legend {
   margin: 0;
   color: #fff3df;
@@ -307,15 +358,64 @@ h1 {
 }
 
 .board {
+  position: absolute;
+  inset: 0;
   display: grid;
-  width: min(100%, calc(100dvh - 220px), 780px);
-  aspect-ratio: 1;
+  width: 100%;
+  height: 100%;
   grid-template-columns: repeat(10, minmax(0, 1fr));
   grid-template-rows: repeat(10, minmax(0, 1fr));
   gap: 4px;
   padding: 6px;
   border-radius: 8px;
   background: rgba(37, 26, 18, 0.76);
+  z-index: 1;
+}
+
+.board-art {
+  position: absolute;
+  inset: 6px;
+  width: calc(100% - 12px);
+  height: calc(100% - 12px);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.snake-path {
+  fill: none;
+  stroke: #17735d;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-dasharray: 1 2.4;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.22));
+}
+
+.snake-head {
+  fill: #155945;
+  stroke: #ffe7a4;
+  stroke-width: 0.35;
+}
+
+.snake-tongue {
+  fill: none;
+  stroke: #d7356f;
+  stroke-width: 0.45;
+  stroke-linecap: round;
+}
+
+.ladder-rail,
+.ladder-rung {
+  stroke: #8b4518;
+  stroke-linecap: round;
+  filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.35));
+}
+
+.ladder-rail {
+  stroke-width: 1.25;
+}
+
+.ladder-rung {
+  stroke-width: 1;
 }
 
 .tile {
@@ -327,6 +427,8 @@ h1 {
   padding: 7px;
   border-radius: 8px;
   border: 1px solid rgba(23, 32, 27, 0.08);
+  position: relative;
+  z-index: 1;
 }
 
 .tile--warm {
@@ -338,11 +440,11 @@ h1 {
 }
 
 .tile--snake {
-  background: linear-gradient(180deg, #ffd0cb, var(--tile-snake));
+  background: linear-gradient(180deg, #ffe5dc, #f7b1a5);
 }
 
 .tile--ladder {
-  background: linear-gradient(180deg, #d9f0ff, var(--tile-ladder));
+  background: linear-gradient(180deg, #dff3ff, #a7daf6);
 }
 
 .tile--start,
@@ -354,10 +456,13 @@ h1 {
 .tile__marker {
   font-size: 0.74rem;
   font-weight: 950;
+  position: relative;
+  z-index: 4;
 }
 
 .tile__marker {
   color: rgba(23, 32, 27, 0.62);
+  text-align: right;
 }
 
 .tile__tokens {
@@ -366,6 +471,8 @@ h1 {
   gap: 3px;
   justify-items: center;
   align-items: end;
+  position: relative;
+  z-index: 5;
 }
 
 .token {
@@ -399,10 +506,57 @@ h1 {
 }
 
 .button--dice {
-  width: min(100%, 280px);
+  width: min(100%, 320px);
+  min-height: 58px;
   justify-self: center;
   background: linear-gradient(135deg, #e24637, #9c241a);
   box-shadow: 0 14px 28px rgba(156, 36, 26, 0.24);
+}
+
+.dice-card {
+  display: grid;
+  align-content: start;
+}
+
+.dice {
+  width: 48px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: #17201b;
+  background: #fffdf7;
+  border: 2px solid rgba(23, 32, 27, 0.22);
+  box-shadow:
+    inset 0 -4px 0 rgba(23, 32, 27, 0.08),
+    0 8px 14px rgba(23, 32, 27, 0.12);
+  font-size: 1.4rem;
+}
+
+.dice--rolling {
+  animation: dice-roll 780ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes dice-roll {
+  0% {
+    transform: rotate(0deg) translateY(0) scale(1);
+  }
+
+  22% {
+    transform: rotate(90deg) translateY(-8px) scale(1.08);
+  }
+
+  48% {
+    transform: rotate(210deg) translateY(3px) scale(0.96);
+  }
+
+  74% {
+    transform: rotate(330deg) translateY(-5px) scale(1.04);
+  }
+
+  100% {
+    transform: rotate(360deg) translateY(0) scale(1);
+  }
 }
 
 .winner-modal {
@@ -432,57 +586,176 @@ h1 {
 @media (max-width: 980px) {
   .topbar,
   .join-form,
+  .lobby-hero,
   .game-layout,
   .score-strip {
     grid-template-columns: 1fr;
   }
 
   .join-actions,
-  .side-actions {
+  .side-actions,
+  .lobby-actions {
     flex-direction: column;
+    align-items: stretch;
   }
 
   .topbar__note {
     max-width: none;
   }
+
+  .players--lobby {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {
+  body {
+    min-height: 100dvh;
+  }
+
   .app {
-    padding: 12px 8px 20px;
+    padding: 10px 8px 16px;
   }
 
   h1 {
-    font-size: clamp(2rem, 12vw, 3.8rem);
+    font-size: 2.35rem;
+  }
+
+  .topbar {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .topbar__note {
+    margin: 0;
+    font-size: 0.92rem;
   }
 
   .side-panel,
   .play-panel,
-  .join-panel {
+  .join-panel,
+  .lobby-panel {
     padding: 10px;
   }
 
-  .board {
+  .lobby-hero h2 {
+    font-size: 2rem;
+  }
+
+  .players--lobby {
+    grid-template-columns: 1fr;
+  }
+
+  .game-layout,
+  .play-panel {
+    gap: 10px;
+  }
+
+  .side-panel {
+    order: 2;
+  }
+
+  .play-panel {
+    order: 1;
+  }
+
+  .board-stage {
     width: min(100%, calc(100vw - 36px), 540px);
+  }
+
+  .board {
     gap: 3px;
     padding: 4px;
   }
 
+  .board-art {
+    inset: 4px;
+    width: calc(100% - 8px);
+    height: calc(100% - 8px);
+  }
+
   .tile {
-    padding: 4px;
+    padding: 3px;
   }
 
   .tile__number,
   .tile__marker {
-    font-size: 0.55rem;
+    font-size: 0.5rem;
+  }
+
+  .tile__marker {
+    display: none;
   }
 
   .token {
-    width: 18px;
-    font-size: 0.58rem;
+    width: 16px;
+    font-size: 0.54rem;
   }
 
   .score-strip article {
     min-height: auto;
+  }
+
+  .score-strip {
+    grid-template-columns: 1fr 84px;
+  }
+
+  .score-strip article:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+
+  .dice {
+    width: 42px;
+    font-size: 1.2rem;
+  }
+
+  .button--dice {
+    width: 100%;
+    position: sticky;
+    bottom: 8px;
+    z-index: 10;
+  }
+}
+
+@media (max-width: 420px) {
+  h1 {
+    font-size: 2rem;
+  }
+
+  .board-stage {
+    width: min(100%, calc(100vw - 28px));
+  }
+
+  .board-shell {
+    padding: 8px;
+  }
+
+  .board {
+    gap: 2px;
+  }
+
+  .tile {
+    padding: 2px;
+  }
+
+  .tile__number {
+    font-size: 0.46rem;
+  }
+
+  .token {
+    width: 14px;
+    border-width: 1px;
+  }
+
+  .snake-path {
+    stroke-width: 2.2;
+  }
+
+  .ladder-rail {
+    stroke-width: 1;
+  }
+
+  .ladder-rung {
+    stroke-width: 0.8;
   }
 }

@@ -6,22 +6,28 @@ const boardCells = buildBoardCells();
 const elements = {
   appShell: document.querySelector("#app-shell"),
   joinPanel: document.querySelector("#join-panel"),
+  lobbyPanel: document.querySelector("#lobby-panel"),
   gamePanel: document.querySelector("#game-panel"),
   joinForm: document.querySelector("#join-form"),
   playerName: document.querySelector("#player-name"),
   roomCodeInput: document.querySelector("#room-code"),
   createRoomButton: document.querySelector("#create-room-button"),
   banner: document.querySelector("#banner"),
+  lobbyTitle: document.querySelector("#lobby-title"),
+  lobbyHint: document.querySelector("#lobby-hint"),
+  lobbyMessage: document.querySelector("#lobby-message"),
   copyRoomButton: document.querySelector("#copy-room-button"),
   gameStatus: document.querySelector("#game-status"),
   gameHint: document.querySelector("#game-hint"),
   players: document.querySelector("#players"),
+  gamePlayers: document.querySelector("#game-players"),
   startButton: document.querySelector("#start-button"),
   resetButton: document.querySelector("#reset-button"),
   turnLabel: document.querySelector("#turn-label"),
   diceValue: document.querySelector("#dice-value"),
   moveSummary: document.querySelector("#move-summary"),
   board: document.querySelector("#board"),
+  boardArt: document.querySelector("#board-art"),
   rollButton: document.querySelector("#roll-button"),
   winnerModal: document.querySelector("#winner-modal"),
   winnerTitle: document.querySelector("#winner-title"),
@@ -31,10 +37,12 @@ const elements = {
 
 const state = {
   room: null,
-  playerId: null
+  playerId: null,
+  lastRollKey: null
 };
 
 renderBoard();
+renderBoardArt();
 syncUi();
 
 elements.createRoomButton.addEventListener("click", () => {
@@ -72,9 +80,9 @@ elements.copyRoomButton.addEventListener("click", async () => {
 
   try {
     await navigator.clipboard.writeText(state.room.code);
-    showBanner("Room code copied.");
+    showNotice("Room code copied.");
   } catch (_error) {
-    showBanner(`Room code: ${state.room.code}`);
+    showNotice(`Room code: ${state.room.code}`);
   }
 });
 
@@ -107,9 +115,12 @@ function sendRoomAction(eventName, payload = {}) {
 
 function syncUi() {
   const hasRoom = Boolean(state.room);
+  const isLobby = hasRoom && state.room.status === "lobby";
+  const isBoardVisible = hasRoom && state.room.status !== "lobby";
   elements.joinPanel.hidden = hasRoom;
-  elements.gamePanel.hidden = !hasRoom;
-  elements.appShell.dataset.mode = hasRoom ? "game" : "landing";
+  elements.lobbyPanel.hidden = !isLobby;
+  elements.gamePanel.hidden = !isBoardVisible;
+  elements.appShell.dataset.mode = !hasRoom ? "landing" : isLobby ? "lobby" : "game";
 
   if (!hasRoom) {
     updateBoardTokens([]);
@@ -125,6 +136,9 @@ function syncUi() {
   const winner = game?.players.find((player) => player.id === game.winnerId) || null;
 
   elements.copyRoomButton.textContent = room.code;
+  elements.lobbyTitle.textContent = `${room.players.length}/4 players joined`;
+  elements.lobbyHint.textContent = getLobbyHint(room, isHost);
+  elements.lobbyMessage.textContent = getLobbyMessage(room, isHost);
   elements.gameStatus.textContent = formatStatus(room, winner);
   elements.gameHint.textContent = getHint(room, me, activePlayer);
   elements.startButton.disabled = !isHost || room.status !== "lobby" || room.players.length < 2;
@@ -133,16 +147,17 @@ function syncUi() {
     room.status !== "playing" || game?.status !== "playing" || activePlayer?.id !== state.playerId;
 
   elements.turnLabel.textContent = activePlayer ? activePlayer.name : "Waiting";
-  elements.diceValue.textContent = game?.lastRoll ? String(game.lastRoll.dice) : "-";
+  syncDice(game);
   elements.moveSummary.textContent = room.message || "Waiting for players.";
 
-  renderPlayers(room, game, activePlayer);
+  renderPlayers(elements.players, room, game, activePlayer);
+  renderPlayers(elements.gamePlayers, room, game, activePlayer);
   updateBoardTokens(game?.players || []);
   renderWinnerModal(game, winner);
 }
 
-function renderPlayers(room, game, activePlayer) {
-  elements.players.replaceChildren();
+function renderPlayers(container, room, game, activePlayer) {
+  container.replaceChildren();
 
   room.players.forEach((player, index) => {
     const gamePlayer = game?.players.find((entry) => entry.id === player.id);
@@ -168,7 +183,7 @@ function renderPlayers(room, game, activePlayer) {
 
     text.append(name, meta);
     card.append(token, text);
-    elements.players.append(card);
+    container.append(card);
   });
 }
 
@@ -178,7 +193,7 @@ function renderBoard() {
   boardCells.forEach((cell) => {
     const tile = document.createElement("div");
     tile.className = "tile";
-    tile.style.gridRowStart = String(cell.row + 1);
+    tile.style.gridRowStart = String(10 - cell.row);
     tile.style.gridColumnStart = String(cell.column + 1);
     tile.dataset.value = String(cell.value);
 
@@ -200,9 +215,7 @@ function renderBoard() {
 
     const marker = document.createElement("span");
     marker.className = "tile__marker";
-    marker.textContent = cell.destination
-      ? `${cell.destination > cell.value ? "L" : "S"} ${cell.destination}`
-      : "";
+    marker.textContent = cell.destination ? String(cell.destination) : "";
 
     const tokens = document.createElement("div");
     tokens.className = "tile__tokens";
@@ -210,6 +223,21 @@ function renderBoard() {
     tile.append(number, marker, tokens);
     elements.board.append(tile);
   });
+}
+
+function renderBoardArt() {
+  elements.boardArt.replaceChildren();
+
+  boardCells
+    .filter((cell) => cell.destination)
+    .forEach((cell, index) => {
+      if (cell.destination > cell.value) {
+        drawLadder(cell.value, cell.destination, index);
+        return;
+      }
+
+      drawSnake(cell.value, cell.destination, index);
+    });
 }
 
 function updateBoardTokens(players) {
@@ -227,6 +255,27 @@ function updateBoardTokens(players) {
         tokenLayer.append(token);
       });
   });
+}
+
+function syncDice(game) {
+  if (!game?.lastRoll) {
+    elements.diceValue.textContent = "-";
+    elements.diceValue.dataset.value = "";
+    state.lastRollKey = null;
+    return;
+  }
+
+  const rollKey = `${game.lastRoll.playerId}-${game.lastRoll.dice}-${game.lastRoll.from}-${game.lastRoll.to}`;
+  elements.diceValue.textContent = String(game.lastRoll.dice);
+  elements.diceValue.dataset.value = String(game.lastRoll.dice);
+
+  if (rollKey !== state.lastRollKey) {
+    state.lastRollKey = rollKey;
+    elements.diceValue.classList.remove("dice--rolling");
+    window.requestAnimationFrame(() => {
+      elements.diceValue.classList.add("dice--rolling");
+    });
+  }
 }
 
 function renderWinnerModal(game, winner) {
@@ -253,6 +302,13 @@ function showBanner(message) {
   elements.banner.textContent = message;
 }
 
+function showNotice(message) {
+  showBanner(message);
+  if (state.room?.status === "lobby") {
+    elements.lobbyMessage.textContent = message;
+  }
+}
+
 function formatStatus(room, winner) {
   if (winner) {
     return `${winner.name} won`;
@@ -263,6 +319,24 @@ function formatStatus(room, winner) {
   }
 
   return `${room.players.length}/4 players in lobby`;
+}
+
+function getLobbyHint(room, isHost) {
+  if (isHost) {
+    return room.players.length < 2
+      ? "Share the room code with at least one more player."
+      : "Everyone is in. Start the match when the table is ready.";
+  }
+
+  return "You are in. Waiting for the host to start.";
+}
+
+function getLobbyMessage(room, isHost) {
+  if (room.players.length < 2) {
+    return "Need at least 2 players.";
+  }
+
+  return isHost ? "Ready to start." : "The host controls the start.";
 }
 
 function getHint(room, me, activePlayer) {
@@ -293,4 +367,87 @@ function getPlayerMeta(player, index, gamePlayer) {
   }
 
   return labels.join(" - ");
+}
+
+function drawSnake(from, to, index) {
+  const start = getCellCenter(from);
+  const end = getCellCenter(to);
+  const bend = index % 2 === 0 ? 1 : -1;
+  const midX = (start.x + end.x) / 2 + bend * 7;
+  const midY = (start.y + end.y) / 2;
+  const pathData = `M ${start.x} ${start.y} Q ${midX} ${midY - 8} ${(start.x + end.x) / 2} ${midY} T ${end.x} ${end.y}`;
+
+  const body = createSvgElement("path", {
+    d: pathData,
+    class: "snake-path"
+  });
+  const head = createSvgElement("circle", {
+    cx: end.x,
+    cy: end.y,
+    r: 1.8,
+    class: "snake-head"
+  });
+  const tongue = createSvgElement("path", {
+    d: `M ${end.x} ${end.y + 1.4} l -1.4 2 M ${end.x} ${end.y + 1.4} l 1.4 2`,
+    class: "snake-tongue"
+  });
+
+  elements.boardArt.append(body, head, tongue);
+}
+
+function drawLadder(from, to, index) {
+  const start = getCellCenter(from);
+  const end = getCellCenter(to);
+  const offset = index % 2 === 0 ? 1.4 : -1.4;
+  const angle = Math.atan2(end.y - start.y, end.x - start.x);
+  const normalX = Math.cos(angle + Math.PI / 2) * 1.5;
+  const normalY = Math.sin(angle + Math.PI / 2) * 1.5;
+  const railA = {
+    x1: start.x + normalX + offset,
+    y1: start.y + normalY,
+    x2: end.x + normalX + offset,
+    y2: end.y + normalY
+  };
+  const railB = {
+    x1: start.x - normalX + offset,
+    y1: start.y - normalY,
+    x2: end.x - normalX + offset,
+    y2: end.y - normalY
+  };
+
+  elements.boardArt.append(createSvgElement("line", { ...railA, class: "ladder-rail" }));
+  elements.boardArt.append(createSvgElement("line", { ...railB, class: "ladder-rail" }));
+
+  for (let rung = 1; rung <= 4; rung += 1) {
+    const progress = rung / 5;
+    elements.boardArt.append(
+      createSvgElement("line", {
+        x1: railA.x1 + (railA.x2 - railA.x1) * progress,
+        y1: railA.y1 + (railA.y2 - railA.y1) * progress,
+        x2: railB.x1 + (railB.x2 - railB.x1) * progress,
+        y2: railB.y1 + (railB.y2 - railB.y1) * progress,
+        class: "ladder-rung"
+      })
+    );
+  }
+}
+
+function getCellCenter(value) {
+  const row = Math.floor((value - 1) / 10);
+  const columnOffset = (value - 1) % 10;
+  const column = row % 2 === 0 ? columnOffset : 9 - columnOffset;
+  const displayRow = 9 - row;
+
+  return {
+    x: column * 10 + 5,
+    y: displayRow * 10 + 5
+  };
+}
+
+function createSvgElement(name, attributes) {
+  const element = document.createElementNS("http://www.w3.org/2000/svg", name);
+  Object.entries(attributes).forEach(([key, value]) => {
+    element.setAttribute(key, String(value));
+  });
+  return element;
 }
