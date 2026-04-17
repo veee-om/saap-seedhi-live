@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Snake Ladder Live</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app" id="app-shell" data-mode="landing">
+      <section class="topbar">
+        <div>
+          <p class="eyebrow">Live Saanp Seedhi</p>
+          <h1>Snake Ladder Live</h1>
+        </div>
+        <p class="topbar__note">2 to 4 players. Room code. Exact roll to 100.</p>
+      </section>
+
+      <section class="join-panel" id="join-panel" aria-label="Join or create room">
+        <form class="join-form" id="join-form">
+          <label class="field">
+            <span>Your name</span>
+            <input id="player-name" name="player-name" maxlength="20" placeholder="Vyom" required />
+          </label>
+
+          <label class="field">
+            <span>Room code</span>
+            <input id="room-code" name="room-code" maxlength="5" placeholder="ABCDE" />
+          </label>
+
+          <div class="join-actions">
+            <button class="button" id="create-room-button" type="button">Create room</button>
+            <button class="button button--dark" type="submit">Join room</button>
+          </div>
+        </form>
+        <p class="banner" id="banner" aria-live="polite"></p>
+      </section>
+
+      <section class="game-layout" id="game-panel" hidden>
+        <aside class="side-panel">
+          <div class="room-card">
+            <span>Room</span>
+            <button class="room-code" id="copy-room-button" type="button">-----</button>
+            <small>Tap to copy</small>
+          </div>
+
+          <div class="room-card">
+            <span>Status</span>
+            <strong id="game-status">Waiting</strong>
+            <p id="game-hint">Create or join a room to start.</p>
+          </div>
+
+          <section class="players" id="players" aria-label="Players"></section>
+
+          <div class="side-actions">
+            <button class="button" id="start-button" type="button">Start match</button>
+            <button class="button button--ghost" id="reset-button" type="button">Back to lobby</button>
+          </div>
+        </aside>
+
+        <section class="play-panel">
+          <div class="score-strip">
+            <article>
+              <span>Turn</span>
+              <strong id="turn-label">Waiting</strong>
+            </article>
+            <article>
+              <span>Last dice</span>
+              <strong id="dice-value">-</strong>
+            </article>
+            <article>
+              <span>Move</span>
+              <strong id="move-summary">No rolls yet</strong>
+            </article>
+          </div>
+
+          <div class="board-shell">
+            <p class="board-legend" id="board-legend">Snakes slide. Ladders climb.</p>
+            <div id="board" class="board" aria-label="Snakes and Ladders board"></div>
+          </div>
+
+          <button class="button button--dice" id="roll-button" type="button">Roll dice</button>
+        </section>
+      </section>
+    </main>
+
+    <div class="winner-modal hidden" id="winner-modal" aria-live="assertive">
+      <div class="winner-modal__card">
+        <p class="eyebrow">Winner</p>
+        <h2 id="winner-title">Match won</h2>
+        <p id="winner-text">A player reached square 100.</p>
+        <button class="button" id="winner-button" type="button">Back to lobby</button>
+      </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
