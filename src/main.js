@@ -28,6 +28,7 @@ const elements = {
   moveSummary: document.querySelector("#move-summary"),
   board: document.querySelector("#board"),
   boardArt: document.querySelector("#board-art"),
+  tokenAnimationLayer: document.querySelector("#token-animation-layer"),
   rollButton: document.querySelector("#roll-button"),
   winnerModal: document.querySelector("#winner-modal"),
   winnerTitle: document.querySelector("#winner-title"),
@@ -38,7 +39,10 @@ const elements = {
 const state = {
   room: null,
   playerId: null,
-  lastRollKey: null
+  lastRollKey: null,
+  lastAnimatedMoveKey: null,
+  animatingPlayerId: null,
+  animationSequence: 0
 };
 
 renderBoard();
@@ -124,6 +128,7 @@ function syncUi() {
 
   if (!hasRoom) {
     updateBoardTokens([]);
+    clearAnimationLayer();
     hideWinnerModal();
     return;
   }
@@ -150,10 +155,19 @@ function syncUi() {
   syncDice(game);
   elements.moveSummary.textContent = room.message || "Waiting for players.";
 
+  const moveKey = getLastRollKey(game);
+  if (game?.lastRoll && moveKey !== state.lastAnimatedMoveKey) {
+    state.lastAnimatedMoveKey = moveKey;
+    startMoveAnimation(game, winner);
+  }
+
   renderPlayers(elements.players, room, game, activePlayer);
   renderPlayers(elements.gamePlayers, room, game, activePlayer);
   updateBoardTokens(game?.players || []);
-  renderWinnerModal(game, winner);
+  renderWinnerModal(
+    winner && state.animatingPlayerId === winner.id ? null : game,
+    winner && state.animatingPlayerId === winner.id ? null : winner
+  );
 }
 
 function renderPlayers(container, room, game, activePlayer) {
@@ -246,7 +260,7 @@ function updateBoardTokens(players) {
     tokenLayer.replaceChildren();
 
     players
-      .filter((player) => player.position === cell.value)
+      .filter((player) => player.position === cell.value && player.id !== state.animatingPlayerId)
       .forEach((player) => {
         const token = document.createElement("span");
         token.className = `token token--${player.color}`;
@@ -276,6 +290,14 @@ function syncDice(game) {
       elements.diceValue.classList.add("dice--rolling");
     });
   }
+}
+
+function getLastRollKey(game) {
+  if (!game?.lastRoll) {
+    return null;
+  }
+
+  return `${game.lastRoll.playerId}-${game.lastRoll.dice}-${game.lastRoll.from}-${game.lastRoll.to}`;
 }
 
 function renderWinnerModal(game, winner) {
@@ -367,6 +389,77 @@ function getPlayerMeta(player, index, gamePlayer) {
   }
 
   return labels.join(" - ");
+}
+
+async function startMoveAnimation(game, winner) {
+  if (!game?.lastRoll) {
+    return;
+  }
+
+  const sequence = state.animationSequence + 1;
+  state.animationSequence = sequence;
+  state.animatingPlayerId = game.lastRoll.playerId;
+  updateBoardTokens(game.players);
+
+  const player = game.players.find((entry) => entry.id === game.lastRoll.playerId);
+  if (!player) {
+    state.animatingPlayerId = null;
+    return;
+  }
+
+  const floatingToken = document.createElement("span");
+  floatingToken.className = `token token--${player.color} token-float token-float--instant`;
+  floatingToken.textContent = player.token;
+  floatingToken.title = player.name;
+  elements.tokenAnimationLayer.replaceChildren(floatingToken);
+
+  moveFloatingToken(floatingToken, game.lastRoll.from);
+  floatingToken.getBoundingClientRect();
+  floatingToken.classList.remove("token-float--instant");
+
+  const landingPosition = game.lastRoll.attempted > BOARD_SIZE ? game.lastRoll.from : game.lastRoll.attempted;
+
+  await animateFloatingToken(floatingToken, landingPosition, "move", sequence);
+
+  if (game.lastRoll.to !== landingPosition) {
+    await animateFloatingToken(floatingToken, game.lastRoll.to, game.lastRoll.movementType, sequence);
+  }
+
+  if (sequence !== state.animationSequence) {
+    return;
+  }
+
+  state.animatingPlayerId = null;
+  clearAnimationLayer();
+  updateBoardTokens(state.room?.game?.players || []);
+  renderWinnerModal(state.room?.game, winner);
+}
+
+function animateFloatingToken(token, position, phase, sequence) {
+  return new Promise((resolve) => {
+    token.classList.remove("token-float--move", "token-float--ladder", "token-float--snake");
+    token.classList.add(`token-float--${phase}`);
+
+    window.requestAnimationFrame(() => {
+      if (sequence !== state.animationSequence) {
+        resolve();
+        return;
+      }
+
+      moveFloatingToken(token, position);
+      window.setTimeout(resolve, phase === "move" ? 360 : 560);
+    });
+  });
+}
+
+function moveFloatingToken(token, position) {
+  const { x, y } = getCellCenter(position);
+  token.style.left = `${x}%`;
+  token.style.top = `${y}%`;
+}
+
+function clearAnimationLayer() {
+  elements.tokenAnimationLayer.replaceChildren();
 }
 
 function drawSnake(from, to, index) {
