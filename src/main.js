@@ -241,6 +241,7 @@ function renderBoard() {
 
 function renderBoardArt() {
   elements.boardArt.replaceChildren();
+  appendBoardDefs();
 
   boardCells
     .filter((cell) => cell.destination)
@@ -468,24 +469,73 @@ function drawSnake(from, to, index) {
   const bend = index % 2 === 0 ? 1 : -1;
   const midX = (start.x + end.x) / 2 + bend * 7;
   const midY = (start.y + end.y) / 2;
-  const pathData = `M ${start.x} ${start.y} Q ${midX} ${midY - 8} ${(start.x + end.x) / 2} ${midY} T ${end.x} ${end.y}`;
+  const bodyColor = index % 3 === 0 ? "emerald" : index % 3 === 1 ? "berry" : "sun";
+  const pathData = `M ${start.x} ${start.y} C ${start.x + bend * 6} ${start.y + 8}, ${midX} ${midY - 10}, ${(start.x + end.x) / 2} ${midY} S ${end.x - bend * 5} ${end.y - 7}, ${end.x} ${end.y}`;
+  const snakeGroup = createSvgElement("g", {
+    class: `snake snake--${bodyColor}`
+  });
 
+  const shadow = createSvgElement("path", {
+    d: pathData,
+    class: "snake-shadow"
+  });
   const body = createSvgElement("path", {
     d: pathData,
     class: "snake-path"
   });
+  const highlight = createSvgElement("path", {
+    d: pathData,
+    class: "snake-highlight"
+  });
+  const belly = createSvgElement("path", {
+    d: pathData,
+    class: "snake-belly"
+  });
+
+  const spotOffsets = [0.16, 0.32, 0.49, 0.66, 0.82];
+  const spots = spotOffsets.map((offset, spotIndex) => {
+    const point = getPointOnCubicPath(start, end, bend, offset);
+    return createSvgElement("ellipse", {
+      cx: point.x,
+      cy: point.y,
+      rx: spotIndex % 2 === 0 ? 1.35 : 1.05,
+      ry: spotIndex % 2 === 0 ? 0.82 : 0.68,
+      class: "snake-spot"
+    });
+  });
+
   const head = createSvgElement("circle", {
     cx: end.x,
     cy: end.y,
-    r: 1.8,
+    r: 2.15,
     class: "snake-head"
+  });
+  const muzzle = createSvgElement("ellipse", {
+    cx: end.x,
+    cy: end.y + 0.5,
+    rx: 1.55,
+    ry: 1.05,
+    class: "snake-muzzle"
+  });
+  const eyeLeft = createSvgElement("circle", {
+    cx: end.x - 0.72,
+    cy: end.y - 0.4,
+    r: 0.24,
+    class: "snake-eye"
+  });
+  const eyeRight = createSvgElement("circle", {
+    cx: end.x + 0.72,
+    cy: end.y - 0.4,
+    r: 0.24,
+    class: "snake-eye"
   });
   const tongue = createSvgElement("path", {
     d: `M ${end.x} ${end.y + 1.4} l -1.4 2 M ${end.x} ${end.y + 1.4} l 1.4 2`,
     class: "snake-tongue"
   });
 
-  elements.boardArt.append(body, head, tongue);
+  snakeGroup.append(shadow, body, highlight, belly, ...spots, head, muzzle, eyeLeft, eyeRight, tongue);
+  elements.boardArt.append(snakeGroup);
 }
 
 function drawLadder(from, to, index) {
@@ -493,8 +543,8 @@ function drawLadder(from, to, index) {
   const end = getCellCenter(to);
   const offset = index % 2 === 0 ? 1.4 : -1.4;
   const angle = Math.atan2(end.y - start.y, end.x - start.x);
-  const normalX = Math.cos(angle + Math.PI / 2) * 1.5;
-  const normalY = Math.sin(angle + Math.PI / 2) * 1.5;
+  const normalX = Math.cos(angle + Math.PI / 2) * 1.8;
+  const normalY = Math.sin(angle + Math.PI / 2) * 1.8;
   const railA = {
     x1: start.x + normalX + offset,
     y1: start.y + normalY,
@@ -508,21 +558,50 @@ function drawLadder(from, to, index) {
     y2: end.y - normalY
   };
 
-  elements.boardArt.append(createSvgElement("line", { ...railA, class: "ladder-rail" }));
-  elements.boardArt.append(createSvgElement("line", { ...railB, class: "ladder-rail" }));
+  const ladderGroup = createSvgElement("g", { class: "ladder" });
+
+  ladderGroup.append(
+    createSvgElement("line", { ...railA, class: "ladder-shadow" }),
+    createSvgElement("line", { ...railB, class: "ladder-shadow" }),
+    createSvgElement("line", { ...railA, class: "ladder-rail" }),
+    createSvgElement("line", { ...railB, class: "ladder-rail" })
+  );
 
   for (let rung = 1; rung <= 4; rung += 1) {
     const progress = rung / 5;
-    elements.boardArt.append(
+    const rungAttrs = {
+      x1: railA.x1 + (railA.x2 - railA.x1) * progress,
+      y1: railA.y1 + (railA.y2 - railA.y1) * progress,
+      x2: railB.x1 + (railB.x2 - railB.x1) * progress,
+      y2: railB.y1 + (railB.y2 - railB.y1) * progress
+    };
+    ladderGroup.append(
       createSvgElement("line", {
-        x1: railA.x1 + (railA.x2 - railA.x1) * progress,
-        y1: railA.y1 + (railA.y2 - railA.y1) * progress,
-        x2: railB.x1 + (railB.x2 - railB.x1) * progress,
-        y2: railB.y1 + (railB.y2 - railB.y1) * progress,
+        ...rungAttrs,
+        class: "ladder-rung-shadow"
+      }),
+      createSvgElement("line", {
+        ...rungAttrs,
         class: "ladder-rung"
       })
     );
   }
+
+  const capTop = createSvgElement("circle", {
+    cx: (railA.x2 + railB.x2) / 2,
+    cy: (railA.y2 + railB.y2) / 2,
+    r: 1.15,
+    class: "ladder-cap"
+  });
+  const capBottom = createSvgElement("circle", {
+    cx: (railA.x1 + railB.x1) / 2,
+    cy: (railA.y1 + railB.y1) / 2,
+    r: 1.15,
+    class: "ladder-cap"
+  });
+
+  ladderGroup.append(capTop, capBottom);
+  elements.boardArt.append(ladderGroup);
 }
 
 function getCellCenter(value) {
@@ -543,4 +622,91 @@ function createSvgElement(name, attributes) {
     element.setAttribute(key, String(value));
   });
   return element;
+}
+
+function appendBoardDefs() {
+  const defs = createSvgElement("defs", {});
+  defs.append(
+    createSvgElement("linearGradient", {
+      id: "snakeGradientEmerald",
+      x1: "0%",
+      y1: "0%",
+      x2: "100%",
+      y2: "100%"
+    }),
+    createSvgElement("linearGradient", {
+      id: "snakeGradientBerry",
+      x1: "0%",
+      y1: "0%",
+      x2: "100%",
+      y2: "100%"
+    }),
+    createSvgElement("linearGradient", {
+      id: "snakeGradientSun",
+      x1: "0%",
+      y1: "0%",
+      x2: "100%",
+      y2: "100%"
+    }),
+    createSvgElement("linearGradient", {
+      id: "ladderWood",
+      x1: "0%",
+      y1: "0%",
+      x2: "100%",
+      y2: "100%"
+    })
+  );
+
+  const gradients = defs.querySelectorAll("linearGradient");
+  gradients[0].append(
+    createSvgElement("stop", { offset: "0%", "stop-color": "#37b48b" }),
+    createSvgElement("stop", { offset: "100%", "stop-color": "#155945" })
+  );
+  gradients[1].append(
+    createSvgElement("stop", { offset: "0%", "stop-color": "#ff6b9a" }),
+    createSvgElement("stop", { offset: "100%", "stop-color": "#8f1d4d" })
+  );
+  gradients[2].append(
+    createSvgElement("stop", { offset: "0%", "stop-color": "#ffca55" }),
+    createSvgElement("stop", { offset: "100%", "stop-color": "#b86411" })
+  );
+  gradients[3].append(
+    createSvgElement("stop", { offset: "0%", "stop-color": "#d59b52" }),
+    createSvgElement("stop", { offset: "55%", "stop-color": "#9e5c1f" }),
+    createSvgElement("stop", { offset: "100%", "stop-color": "#744015" })
+  );
+
+  elements.boardArt.append(defs);
+}
+
+function getPointOnCubicPath(start, end, bend, t) {
+  const p0 = start;
+  const p1 = { x: start.x + bend * 6, y: start.y + 8 };
+  const p2 = { x: (start.x + end.x) / 2 + bend * 7, y: (start.y + end.y) / 2 - 10 };
+  const p3 = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
+
+  const first = cubicInterpolate(p0, p1, p2, p3, Math.min(t, 0.5) * 2);
+  const q0 = p3;
+  const q1 = { x: (start.x + end.x) / 2 - bend * 7, y: (start.y + end.y) / 2 + 10 };
+  const q2 = { x: end.x - bend * 5, y: end.y - 7 };
+  const q3 = end;
+  const second = cubicInterpolate(q0, q1, q2, q3, Math.max(0, t - 0.5) * 2);
+
+  return t <= 0.5 ? first : second;
+}
+
+function cubicInterpolate(p0, p1, p2, p3, t) {
+  const inv = 1 - t;
+  const x =
+    inv * inv * inv * p0.x +
+    3 * inv * inv * t * p1.x +
+    3 * inv * t * t * p2.x +
+    t * t * t * p3.x;
+  const y =
+    inv * inv * inv * p0.y +
+    3 * inv * inv * t * p1.y +
+    3 * inv * t * t * p2.y +
+    t * t * t * p3.y;
+
+  return { x, y };
 }
